@@ -1,0 +1,17 @@
+{
+  "name": "motility-nanite-awakening",
+  "version": "1.0.0",
+  "description": "3D Cyborg Escape Game - Discovery via actual motion motivation",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host --port 5300",
+    "build": "vite build",
+    "preview": "vite preview --port 5300"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.3"
+  }
+}

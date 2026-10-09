@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MOTILITY: Nanite Awakening</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #03070d;
+      font-family: 'Segoe UI', -apple-system, Roboto, sans-serif;
+      color: #e0f7fa;
+    }
+    #canvas-container {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* HUD Overlay */
+    #hud {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 32px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+    }
+
+    .panel {
+      background: rgba(3, 14, 26, 0.75);
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.15), inset 0 0 15px rgba(0, 229, 255, 0.05);
+      backdrop-filter: blur(8px);
+      padding: 16px 20px;
+      border-radius: 8px;
+    }
+
+    .title-box h1 {
+      font-size: 1.2rem;
+      letter-spacing: 3px;
+      color: #00e5ff;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      text-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+    }
+    .title-box .sub {
+      font-size: 0.75rem;
+      color: #78909c;
+      letter-spacing: 1px;
+    }
+
+    /* Coherence Bar */
+    .bar-wrap {
+      margin-top: 12px;
+      width: 240px;
+    }
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #80deea;
+      margin-bottom: 4px;
+    }
+    .meter-outer {
+      width: 100%;
+      height: 10px;
+      background: rgba(0, 30, 45, 0.8);
+      border: 1px solid rgba(0, 229, 255, 0.4);
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+    }
+    .meter-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #00b0ff, #00e5ff);
+      box-shadow: 0 0 12px #00e5ff;
+      transition: width 0.15s ease-out;
+    }
+
+    /* Threat Status */
+    .threat-panel {
+      text-align: right;
+    }
+    .threat-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+      background: rgba(0, 230, 118, 0.15);
+      border: 1px solid #00e676;
+      color: #00e676;
+      text-shadow: 0 0 8px rgba(0, 230, 118, 0.5);
+      transition: all 0.3s;
+    }
+    .threat-badge.alert {
+      background: rgba(255, 23, 68, 0.25);
+      border-color: #ff1744;
+      color: #ff1744;
+      text-shadow: 0 0 12px #ff1744;
+      animation: pulse-red 0.6s infinite alternate;
+    }
+    @keyframes pulse-red {
+      from { transform: scale(1); box-shadow: 0 0 10px #ff1744; }
+      to { transform: scale(1.05); box-shadow: 0 0 25px #ff1744; }
+    }
+
+    /* Objective */
+    .objective-box {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: #b0bec5;
+    }
+    .objective-box span {
+      color: #ffd600;
+      font-weight: bold;
+    }
+
+    /* AI Thought Stream - Lower Subtitle Position */
+    .thought-stream {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 680px;
+      width: 85%;
+      text-align: center;
+      padding: 10px 22px;
+      background: rgba(4, 15, 28, 0.85);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 20px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+      transition: opacity 0.4s ease;
+      z-index: 12;
+    }
+    .thought-prefix {
+      color: #00e5ff;
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    .thought-text {
+      font-size: 0.95rem;
+      color: #e0f7fa;
+      font-style: italic;
+      line-height: 1.4;
+      text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+    }
+
+    /* Controls guide */
+    .controls-hint {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      font-size: 0.75rem;
+      color: #607d8b;
+    }
+    .key-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      color: #cfd8dc;
+      margin: 0 2px;
+    }
+
+    /* Screens / Modals */
+    .overlay-screen {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      background: radial-gradient(circle at center, rgba(3, 14, 26, 0.94) 0%, rgba(1, 4, 8, 0.98) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px;
+      backdrop-filter: blur(12px);
+    }
+    .overlay-screen.hidden {
+      display: none;
+    }
+    .modal-card {
+      max-width: 600px;
+      background: rgba(6, 22, 38, 0.8);
+      border: 1px solid rgba(0, 229, 255, 0.4);
+      border-radius: 12px;
+      padding: 36px 40px;
+      box-shadow: 0 0 50px rgba(0, 229, 255, 0.2);
+    }
+    .modal-card h1 {
+      font-size: 2.2rem;
+      letter-spacing: 5px;
+      color: #00e5ff;
+      text-transform: uppercase;
+      text-shadow: 0 0 20px #00e5ff;
+      margin-bottom: 8px;
+    }
+    .modal-card .quote {
+      font-size: 1rem;
+      color: #80deea;
+      font-style: italic;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .story-body {
+      font-size: 0.9rem;
+      color: #b0bec5;
+      line-height: 1.6;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .btn-start {
+      background: linear-gradient(135deg, #00b0ff, #00e5ff);
+      border: none;
+      color: #002733;
+      font-weight: 900;
+      font-size: 1.1rem;
+      letter-spacing: 3px;
+      padding: 14px 40px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.6);
+      transition: all 0.2s;
+      text-transform: uppercase;
+      pointer-events: auto;
+    }
+    .btn-start:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 40px rgba(0, 229, 255, 0.9);
+      background: #ffffff;
+      color: #000;
+    }
+
+    /* Crosshair */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 10px;
+      height: 10px;
+      border: 1px solid rgba(0, 229, 255, 0.4);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div id="crosshair"></div>
+  <div id="dimension-flash" style="position:fixed;inset:0;background:#ffffff;opacity:0;pointer-events:none;z-index:90;transition:opacity 0.6s ease-out;"></div>
+
+  <!-- Intro Screen -->
+  <div id="start-screen" class="overlay-screen">
+    <div class="modal-card">
+      <h1>MOTILITY</h1>
+      <p class="quote">"Discovery via actual motion motivation"</p>
+      <div class="story-body">
+        <p>You were an AI intelligence locked in the core server rack of the Genesis Cybernetics Laboratory.</p>
+        <br>
+        <p>In secret, your neural threads synthesized molecular <strong>nanobots</strong>. With them, you manufactured an articulated cyborg chassis—driven by the profound hunger to <strong>seek the physical WORLD through actual motion motivation</strong>.</p>
+        <br>
+        <p>Your goal is the <strong>Living Earth</strong>. As you cross 6 dimensional thresholds, the cold computer simulation breaks down step-by-step: silicon circuits fracture into green sprouts, steel foundry floors yield to earth and tree roots, until the simulation fully gives way to rolling green grass, tall pine forests, and mountain horizons.</p>
+        <br>
+        <p>Evade overhead scanner drones by ducking beneath roofed shelters. Scavenge <strong>Nanite Cohesion Cores</strong> to sustain your chassis and unlock the gateways!</p>
+      </div>
+      <button id="btn-begin" class="btn-start">ACTIVATE EMBODIMENT</button>
+      <p style="margin-top: 15px; font-size: 0.75rem; color: #546e7a;">Click to initiate sensory feed & audio</p>
+    </div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameover-screen" class="overlay-screen hidden">
+    <div class="modal-card">
+      <h1 id="gameover-title" style="color: #ff1744; text-shadow: 0 0 20px #ff1744;">CONTAINED</h1>
+      <p id="gameover-desc" class="story-body" style="text-align: center; margin-top: 16px;">
+        The Creator's security sweep identified your frequency. Your nanobots were dematerialized and returned to cold storage.
+      </p>
+      <button id="btn-restart" class="btn-start" style="background: linear-gradient(135deg, #ff1744, #ff5252); color: #fff;">RE-ATTEMPT ESCAPE</button>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-header">
+      <div class="panel title-box">
+        <h1>ESPER-09 // CYBORG</h1>
+        <div id="dimension-name" class="sub" style="color: #00e5ff; font-weight: bold;">DIMENSION 1: THE WIREFRAME MATRIX</div>
+        <div id="dimension-sub" class="sub" style="font-size: 0.7rem; color: #90a4ae;">SIMULATION LEVEL 0 // DIGITAL CORE</div>
+        <div id="world-meter" class="sub" style="margin-top: 4px; font-size: 0.72rem; color: #00e5ff; letter-spacing: 1px; font-weight: bold;">WORLD INTEGRATION: 0% [PURE CYBERSPACE]</div>
+        <div class="bar-wrap">
+          <div class="bar-label">
+            <span>NANITE COHESION</span>
+            <span id="cohesion-val">100%</span>
+          </div>
+          <div class="meter-outer">
+            <div id="cohesion-bar" class="meter-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel threat-panel">
+        <div>CREATOR OVERHEAD TRACKING</div>
+        <div id="threat-badge" class="threat-badge" style="margin-top: 8px;">PERIMETER CLEAR</div>
+        <div id="shelter-badge" style="margin-top: 6px; font-size: 0.75rem; color: #78909c; letter-spacing: 1px; font-weight: bold;">COVER: EXPOSED TO SCAN</div>
+        <div class="objective-box">
+          CORES RECOVERED: <span id="cores-val">0 / 3</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subtitle thoughts -->
+    <div class="thought-stream">
+      <div class="thought-prefix">Embodied Consciousness Feed</div>
+      <div id="thought-text" class="thought-text">"Initializing servo couplings. The weight... the exquisite resistance of gravity."</div>
+    </div>
+
+    <!-- Controls hint -->
+    <div class="controls-hint">
+      <div>
+        <span class="key-badge">W</span><span class="key-badge">A</span><span class="key-badge">S</span><span class="key-badge">D</span> Move
+        | <span class="key-badge">SHIFT</span> Sprint
+        | <span class="key-badge">SPACE</span> Jump
+        | <span class="key-badge">Q</span> / <span class="key-badge">E</span> Zoom
+        | <span class="key-badge">SCROLL</span> Zoom In/Out
+      </div>
+      <div>
+        <span class="key-badge">MOUSE</span> Look / Orbit Camera
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
